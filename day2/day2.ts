@@ -1,4 +1,4 @@
-import { readInputLines, sum } from '../shared/utils';
+import { readInputLines, sumBy } from '../shared/utils';
 
 const cubes = ['blue', 'red', 'green'] as const;
 
@@ -36,8 +36,8 @@ const parseGame = (line: string): Game => {
     };
 };
 
-const possible = (set: Set): boolean => {
-    return cubes.every(c => set[c] <= constraint[c]);
+const possible = ({ min }: Game): boolean => {
+    return cubes.every(c => min[c] <= constraint[c]);
 };
 
 const power = ({ min }: Game): number => {
@@ -47,8 +47,8 @@ const power = ({ min }: Game): number => {
 const day2 = (lines: string[]): number[] => {
     const games = lines.map(parseGame);
     return [
-        sum(games.filter(g => possible(g.min)).map(g => g.id)),
-        sum(games.map(power)),
+        sumBy(games.filter(possible), g => g.id),
+        sumBy(games, power),
     ];
 };
 
