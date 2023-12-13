@@ -9,44 +9,38 @@ const parse = (lines: string[]): Data => {
     });
 };
 
-const isValid = (pattern: string[], valid: number[]): boolean => {
-    const groups = pattern
-        .join('')
-        .split('.')
-        .map(g => g.length)
-        .filter(s => s !== 0);
-    return groups.join(',') === valid.join(',');
-};
-
-const validArrangements = (pattern: string[], groups: number[]): number => {
-    const idx = pattern.indexOf('?');
-    if (idx === -1) {
-        return isValid(pattern, groups) ? 1 : 0;
+const validArrangements = memoize((pattern: string, groups: number[]): number => {
+    if (pattern.length === 0) {
+        return groups.length ? 0 : 1;
     }
 
-    const damaged = pattern.map((x, i) => idx === i ? '#' : x);
-    const normal = pattern.map((x, i) => idx === i ? '.' : x);
-    return validArrangements2(damaged.slice(idx), groups) + validArrangements2(normal, groups);
-};
-
-const validArrangements2 = memoize((pattern: string[], groups: number[]): number => {
-    const idx = pattern.indexOf('?');
-    if (idx === -1) {
-        return isValid(pattern, groups) ? 1 : 0;
+    if (groups.length === 0) {
+        return pattern.includes('#') ? 0 : 1;
     }
 
-    const damaged = pattern.map((x, i) => idx === i ? '#' : x);
-    const normal = pattern.map((x, i) => idx === i ? '.' : x);
-    return validArrangements2(damaged.slice(idx), groups) + validArrangements2(normal, groups);
-}, (p, g) => `${p.join('')} ${g.join(',')}`);
+    let arrangements = 0;
+    if (pattern[0] === '.' || pattern[0] === '?') {
+        arrangements += validArrangements(pattern.slice(1), groups);
+    }
+
+    const [g, ...gs] = groups;
+    if (pattern.slice(0, g + 1).match(`^[?#]{${g}}($|[?.])`) !== null) {
+        arrangements += validArrangements(pattern.slice(g + 1), gs);
+    }
+
+    return arrangements;
+}, (p, g) => `${p} ${g.join(',')}`);
+
+const expand = ([p, g]: Data[number]): Data[number] => [
+    Array(5).fill(p).join('?'),
+    Array(5).fill(g).flatMap(x => x),
+];
 
 const day12 = (data: Data): [number, number] => {
-    const p1 = data.map(([p, g]) => validArrangements2(Array.from(p), g));
+    const p1 = data.map(([p, g]) => validArrangements(p, g));
+    const p2 = data.map(expand).map(([p, g]) => validArrangements(p, g))
 
-    return [
-        sum(p1),
-        0,
-    ];
+    return [sum(p1), sum(p2)];
 };
 
 (async () => {
