@@ -231,6 +231,14 @@ export const partition = <T>(xs: T[], fn: (x: T) => boolean): [T[], T[]] => {
     return [on, off];
 };
 
+export const zipWithV = <T, U>(fn: (...xs: T[]) => U, ...arrs: T[][]): U[] => {
+    if (arrs.some(arr => arr.length === 0)) {
+        return [];
+    }
+
+    return [fn(...arrs.map(xs => xs[0])), ...zipWithV(fn, ...arrs.map(xs => xs.slice(1)))];
+};
+
 export const zipWith = <T, U>(xs: T[], ys: T[], fn: (a: T, b: T) => U): U[] => {
     if (xs.length === 0 || ys.length === 0) {
         return [];
