@@ -1,64 +1,92 @@
-import { readInputLines, reduce } from '../shared/utils';
+import { memoize, readInputLines, reduce } from '../shared/utils';
 
+type Dir = 'N' | 'W' | 'S' | 'E';
 type Point = [number, number];
 type PointS = `${number}_${number}`;
-type Data = [Point[], Map<PointS, string>, number];
+type Data = [Set<PointS>, Set<PointS>, number];
 
 const toStr = ([x, y]: Point): PointS => `${x}_${y}`;
 const fromStr = (str: PointS): Point => str.split('_').map(x => parseInt(x, 10)) as Point;
 
 const parse = (lines: string[]): Data => {
-    const rocks = [] as Point[];
-    const grid = new Map<PointS, string>();
+    const rocks = new Set<PointS>();
+    const beams = new Set<PointS>();
 
     for (let y = 0; y < lines.length; ++y) {
         for (let x = 0; x < lines.length; ++x) {
             const curr = lines[y][x];
             if (curr === '#') {
-                grid.set(toStr([x, y]), curr);
+                beams.add(toStr([x, y]));
             } else if (curr === 'O') {
-                rocks.push([x, y]);
+                rocks.add(toStr([x, y]));
             }
         }
     }
 
-    return [rocks, grid, lines.length];
+    return [rocks, beams, lines.length];
 };
 
-const move = ([x, y]: Point, grid: Data[1], size: number): Point => {
-    while (y !== 0) {
-        if (grid.get(toStr([x, y - 1])) !== undefined) {
-            return [x, y];
-        }
+const dirs: Record<Dir, Point> = {
+    N: [0, -1],
+    W: [-1, 0],
+    S: [0, 1],
+    E: [1, 0]
+};
 
-        y = y - 1;
+const inBounds = ([x, y]: Point, size: number): boolean => {
+    return x >= 0 && y >= 0 && x < size && y < size;
+};
+
+const move = memoize((rocks: Set<PointS>, beams: Set<PointS>, size: number, dir: Dir): Set<PointS> => {
+    const [dx, dy] = dirs[dir];
+    const moved = new Set<PointS>();
+    for (const rock of rocks) {
+        let [x, y] = fromStr(rock);
+        while (true) {
+            const next: Point = [x + dx, y + dy];
+            if (moved.has(toStr(next))
+                || beams.has(toStr(next))
+                || !inBounds(next, size)) {
+                moved.add(toStr([x, y]));
+                break;
+            } else {
+                [x, y] = next;
+            }
+        }
     }
 
-    return [x, y];
-};
+    return moved;
+}, (r, _, __, d) => `${Array.from(r).toSorted().join('-')}_${d}`);
 
-const load = (grid: Data[1], size: number): number => {
-    return reduce(grid.entries(), 0, (acc, [p, s]) => {
-        if (s === '#') {
-            return acc;
+const load = (rocks: Set<PointS>, size: number, dir: Dir): number => {
+    return reduce(rocks, 0, (acc, curr) => {
+        const [x, y] = fromStr(curr);
+        switch (dir) {
+            case 'N':
+                return acc + (size - y);
+            case 'W':
+                return acc + (size - x);
+            case 'S':
+                return acc + (y + 1);
+            case 'E':
+                return acc + (x + 1);
         }
-
-        const [, y] = fromStr(p);
-        return acc + (size - y);
     });
 };
 
-const part1 = ([rocks, grid, size]: Data): number => {
-    for (const rock of rocks) {
-        const final = move(rock, grid, size);
-        grid.set(toStr(final), 'O');
-    }
-
-    return load(grid, size);
+const part1 = ([rocks, beams, size]: Data): number => {
+    const moved = move(rocks, beams, size, 'N');
+    return load(moved, size, 'N');
 };
 
-const part2 = (data: Data): number => {
-    return 0;
+const part2 = ([rocks, beams, size]: Data): number => {
+    for (let i = 0; i < 1000000000; ++i) {
+        for (const dir of ['N', 'W', 'S', 'E'] as Dir[]) {
+            rocks = move(rocks, beams, size, dir);
+        }
+    }
+
+    return load(rocks, size, 'N');
 };
 
 (async () => {
