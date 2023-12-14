@@ -82,8 +82,8 @@ const part2 = ([rocks, beams, size]: Data): number => {
             const key = next.map(toStr).join(',');
             const cycle = prev.indexOf(key)
             if (cycle !== -1) {
-                const mod = ((4 * 1000000000) - cycle) % (prev.length - cycle);
-                const end = prev[cycle + mod - 1].split(',').map(p => fromStr(p as PointS));
+                const mod = ((4 * 1000000000) - 1 - cycle) % (prev.length - cycle);
+                const end = prev[cycle + mod].split(',').map(p => fromStr(p as PointS));
                 return load(end, size);
             }
 
