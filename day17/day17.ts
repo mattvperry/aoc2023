@@ -1,24 +1,13 @@
 import { readInputLines } from '../shared/utils';
+import { Point, PointS, Grid, toStr, Node, shortestPath } from '../shared/pathfinding';
 
-type Point = [number, number];
-type PointS = `${number}_${number}`;
 type Dir = 'N' | 'S' | 'E' | 'W';
-type Data = [Map<PointS, number>, number];
+type Data = [Grid, number];
 
-type Node = {
-    pos: Point,
+type LavaNode = Node & {
     dir: Dir,
     steps: number,
 };
-
-type State = {
-    key: string,
-    node: Node,
-    cost: number,
-    prev: State | null,
-};
-
-const toStr = ([x, y]: Point): PointS => `${x}_${y}`;
 
 const parse = (lines: string[]): Data => {
     const grid = new Map<PointS, number>();
@@ -53,109 +42,63 @@ const right: Record<Dir, Dir> = {
     W: 'N',
 };
 
-const getKey = ({ pos, dir, steps }: Node): string => {
+const getKey = ({ pos, dir, steps }: LavaNode): string => {
     return `${toStr(pos)}|${dir}|${steps}`;
 };
 
-const sortedIdx = <T>(xs: T[], val: number, pluck: (x: T) => number): number => {
-    let [low, high] = [0, xs.length];
-
-    while (low < high) {
-        const mid = (low + high) >>> 1;
-        [low, high] = pluck(xs[mid]) < val 
-            ? [mid + 1, high]
-            : [low, mid];
-    }
-
-    return low;
+const move = (node: LavaNode, dir: Dir): LavaNode => {
+    const [x, y] = node.pos;
+    const [dx, dy] = dirs[dir];
+    return {
+        pos: [x + dx, y + dy],
+        dir,
+        steps: node.dir === dir ? node.steps + 1 : 1,
+    };
 };
 
-const pf = (
-    grid: Data[0],
-    end: Point,
-    moves: (curr: Node) => IterableIterator<Dir>,
-    finish?: (node: Node) => boolean,
-): State | undefined => {
-    const visited = new Set<string>();
-    const initial: Node[] = [
-        { pos: [1, 0], dir: 'E', steps: 1 },
-        { pos: [0, 1], dir: 'S', steps: 1 },
-    ];
-    const queue: State[] = initial.map(node => ({
-        key: getKey(node),
-        node,
-        cost: grid.get(toStr(node.pos))!,
-        prev: null,
-    }));
-
-    while (queue.length > 0) {
-        const curr = queue.shift()!;
-        if (visited.has(curr.key)) {
-            continue;
-        }
-
-        visited.add(curr.key);
-        if (curr.key.startsWith(toStr(end)) && (finish?.(curr.node) ?? true)) {
-            return curr;
-        }
-
-        const [ux, uy] = curr.node.pos;
-        for (const dir of moves(curr.node)) {
-            const [dx, dy] = dirs[dir];
-            const pos: Point = [ux + dx, uy + dy];
-            const cost = grid.get(toStr(pos));
-            if (cost === undefined) {
-                continue;
-            }
-
-            const node = {
-                pos,
-                dir,
-                steps: dir === curr.node.dir ? curr.node.steps + 1 : 1,
-            };
-
-            const idx = sortedIdx(queue, curr.cost + cost, x => x.cost);
-            queue.splice(idx, 0, {
-                key: getKey(node),
-                node,
-                cost: curr.cost + cost,
-                prev: curr,
-            });
-        }
-    }
-};
-
-const part1 = ([grid, size]: Data): number => {
-    return pf(
+const getCost = ([grid, size]: Data, move: (node: LavaNode) => IterableIterator<LavaNode>, finish?: (node: LavaNode) => boolean): number => {
+    return shortestPath(
         grid,
+        [
+            { pos: [0, 1], dir: 'S', steps: 1 },
+            { pos: [1, 0], dir: 'E', steps: 1 },
+        ],
         [size - 1, size - 1],
-        function* (node) {
-            if (node.steps < 3) {
-                yield node.dir;
-            }
-
-            yield left[node.dir];
-            yield right[node.dir];
-        }
+        getKey,
+        move,
+        finish,
     )?.cost ?? -1;
 };
 
-const part2 = ([grid, size]: Data): number => {
-    return pf(
-        grid,
-        [size - 1, size - 1],
+const part1 = (data: Data): number => {
+    return getCost(
+        data,
+        function* (node) {
+            if (node.steps < 3) {
+                yield move(node, node.dir);
+            }
+
+            yield move(node, left[node.dir]);
+            yield move(node, right[node.dir]);
+        }
+    );
+};
+
+const part2 = (data: Data): number => {
+    return getCost(
+        data,
         function* (node) {
             if (node.steps < 10) {
-                yield node.dir;
+                yield move(node, node.dir);
             }
 
             if (node.steps > 3) {
-                yield left[node.dir];
-                yield right[node.dir];
+                yield move(node, left[node.dir]);
+                yield move(node, right[node.dir]);
             }
         },
         node => node.steps > 3,
-    )?.cost ?? -1;
+    );
 };
 
 (async () => {
